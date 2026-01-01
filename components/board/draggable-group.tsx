@@ -87,20 +87,23 @@ export function DraggableGroup({
       <Card className="overflow-hidden">
         {/* Group Header */}
         <div
-          className="flex items-center px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800"
+          className="flex items-center px-4 py-3.5 bg-gradient-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-800/50 hover:from-gray-100 hover:to-gray-50 dark:hover:from-gray-700 dark:hover:to-gray-800 transition-all border-b border-gray-200 dark:border-gray-700"
           style={{ borderLeft: `4px solid ${group.color || "#6B7280"}` }}
         >
           {/* Drag Handle */}
           <div
             {...attributes}
             {...listeners}
-            className="mr-2 cursor-grab active:cursor-grabbing"
+            className="mr-2 cursor-grab active:cursor-grabbing hover:text-primary transition-colors"
           >
             <GripVertical className="h-4 w-4 text-gray-400" />
           </div>
 
           {/* Collapse Button */}
-          <button className="mr-2" onClick={() => onToggle(group.id)}>
+          <button 
+            className="mr-2 hover:bg-gray-200 dark:hover:bg-gray-700 p-1 rounded transition-colors" 
+            onClick={() => onToggle(group.id)}
+          >
             {group.isCollapsed ? (
               <ChevronRight className="h-4 w-4" />
             ) : (
@@ -108,11 +111,11 @@ export function DraggableGroup({
             )}
           </button>
 
-          <h3 className="font-semibold text-lg flex-1">{group.title}</h3>
-          <span className="text-sm text-gray-500 mr-4">
-            {group.items.length} items
+          <h3 className="font-semibold text-base flex-1 text-gray-900 dark:text-gray-100">{group.title}</h3>
+          <span className="text-sm font-medium text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2.5 py-1 rounded-md mr-4">
+            {group.items.length} {group.items.length === 1 ? 'item' : 'items'}
           </span>
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" className="hover:bg-gray-200 dark:hover:bg-gray-700">
             <MoreHorizontal className="h-4 w-4" />
           </Button>
         </div>
@@ -121,15 +124,15 @@ export function DraggableGroup({
         {!group.isCollapsed && (
           <div>
             {/* Column Headers */}
-            <div className="flex border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 px-4 py-2">
+            <div className="flex border-b border-gray-200 dark:border-gray-700 bg-gray-100/50 dark:bg-gray-800/30 px-4 py-2.5 sticky top-0 z-10">
               <div className="w-12"></div> {/* Space for drag handle */}
-              <div className="w-64 font-medium text-sm text-gray-700 dark:text-gray-300">
+              <div className="w-64 font-semibold text-xs uppercase tracking-wider text-gray-700 dark:text-gray-300">
                 Item
               </div>
               {columns.map((column) => (
                 <div
                   key={column.id}
-                  className="font-medium text-sm text-gray-700 dark:text-gray-300"
+                  className="font-semibold text-xs uppercase tracking-wider text-gray-700 dark:text-gray-300"
                   style={{ width: column.width || 150 }}
                 >
                   {column.title}
@@ -138,7 +141,7 @@ export function DraggableGroup({
             </div>
 
             {/* Items */}
-            <div className="divide-y divide-gray-200 dark:divide-gray-700">
+            <div className="bg-white dark:bg-card">
               <SortableContext
                 items={group.items.map((item) => item.id)}
                 strategy={verticalListSortingStrategy}

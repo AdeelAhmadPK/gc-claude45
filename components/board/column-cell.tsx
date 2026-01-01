@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Calendar, CheckSquare, Hash, Type, User, Tag } from "lucide-react";
+import { InlineProgress } from "@/components/ui/progress-bar";
 
 interface ColumnCellProps {
   type: string;
@@ -51,6 +52,25 @@ export function ColumnCell({ type, value, onChange, onBlur }: ColumnCellProps) {
             type="number"
             value={tempValue || ""}
             onChange={(e) => setTempValue(Number(e.target.value))}
+            onBlur={handleSave}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleSave();
+              if (e.key === "Escape") handleCancel();
+            }}
+            autoFocus
+            className="h-8"
+          />
+        );
+
+      case "PROGRESS":
+      case "PERCENTAGE":
+        return (
+          <Input
+            type="number"
+            min="0"
+            max="100"
+            value={tempValue || ""}
+            onChange={(e) => setTempValue(Math.min(100, Math.max(0, Number(e.target.value))))}
             onBlur={handleSave}
             onKeyDown={(e) => {
               if (e.key === "Enter") handleSave();
@@ -168,6 +188,14 @@ export function ColumnCell({ type, value, onChange, onBlur }: ColumnCellProps) {
       case "NUMBER":
         return value !== null && value !== undefined ? (
           <span className="text-sm">{value}</span>
+        ) : (
+          <span className="text-gray-400">-</span>
+        );
+
+      case "PROGRESS":
+      case "PERCENTAGE":
+        return value !== null && value !== undefined ? (
+          <InlineProgress value={value} />
         ) : (
           <span className="text-gray-400">-</span>
         );

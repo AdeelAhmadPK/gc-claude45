@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { AvatarGroup } from "@/components/ui/avatar-group";
 import { Plus, MoreHorizontal, Clock, AlertCircle, Users, Paperclip, MessageSquare } from "lucide-react";
 import { DndContext, DragEndEvent, DragOverEvent, closestCorners, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -24,6 +25,7 @@ interface Column {
 interface Item {
   id: string;
   name: string;
+  description?: string | null;
   position: number;
   priority?: "URGENT" | "HIGH" | "MEDIUM" | "LOW" | "NONE";
   dueDate?: string | null;
@@ -112,42 +114,57 @@ function KanbanCard({ item, onClick }: { item: Item; onClick?: () => void }) {
       {...attributes}
       onClick={onClick}
       className={cn(
-        "bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700",
-        "cursor-pointer hover:shadow-md transition-shadow",
-        getPriorityColor(item.priority)
+        "bg-white dark:bg-card p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700",
+        "cursor-pointer hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600",
+        "transition-all duration-200",
+        getPriorityColor(item.priority),
+        isDragging && "shadow-2xl ring-2 ring-primary/50"
       )}
     >
       {/* Drag handle area */}
-      <div {...listeners} className="cursor-grab active:cursor-grabbing">
-        <p className="font-medium text-sm mb-2">{item.name}</p>
+      <div {...listeners} className="cursor-grab active:cursor-grabbing mb-2">
+        <p className="font-medium text-sm text-gray-900 dark:text-gray-100">{item.name}</p>
+        
+        {/* Description */}
+        {item.description && (
+          <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
+            {item.description}
+          </p>
+        )}
       </div>
 
+      {/* Priority Badge */}
+      {item.priority && item.priority !== "NONE" && (
+        <Badge
+          variant="outline"
+          className={cn(
+            "text-xs mb-2",
+            item.priority === "URGENT" && "border-red-500 text-red-600 dark:text-red-400 bg-red-500/10",
+            item.priority === "HIGH" && "border-orange-500 text-orange-600 dark:text-orange-400 bg-orange-500/10",
+            item.priority === "MEDIUM" && "border-yellow-500 text-yellow-600 dark:text-yellow-400 bg-yellow-500/10",
+            item.priority === "LOW" && "border-green-500 text-green-600 dark:text-green-400 bg-green-500/10"
+          )}
+        >
+          {item.priority}
+        </Badge>
+      )}
+
       {/* Card Footer */}
-      <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-100 dark:border-gray-700">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+        <div className="flex items-center gap-3">
           {/* Assignees */}
           {item.assignments && item.assignments.length > 0 && (
-            <div className="flex -space-x-2">
-              {item.assignments.slice(0, 3).map((assignment) => (
-                <Avatar key={assignment.user.id} className="w-6 h-6 border-2 border-white dark:border-gray-800">
-                  <AvatarImage src={assignment.user.image || undefined} />
-                  <AvatarFallback className="text-xs">
-                    {assignment.user.name?.[0] || assignment.user.email[0]}
-                  </AvatarFallback>
-                </Avatar>
-              ))}
-              {item.assignments.length > 3 && (
-                <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xs border-2 border-white dark:border-gray-800">
-                  +{item.assignments.length - 3}
-                </div>
-              )}
-            </div>
+            <AvatarGroup
+              users={item.assignments.map((a) => a.user)}
+              max={3}
+              size="xs"
+            />
           )}
 
           {/* Due Date */}
           {dueDateStatus && (
-            <div className={cn("flex items-center gap-1 text-xs", dueDateStatus.color)}>
-              {dueDateStatus.icon && <Clock className="w-3 h-3" />}
+            <div className={cn("flex items-center gap-1 text-xs font-medium", dueDateStatus.color)}>
+              {dueDateStatus.icon && <Clock className="w-3.5 h-3.5" />}
               <span>{dueDateStatus.label}</span>
             </div>
           )}
@@ -157,7 +174,7 @@ function KanbanCard({ item, onClick }: { item: Item; onClick?: () => void }) {
           {/* Comments count */}
           {item.comments && item.comments.length > 0 && (
             <div className="flex items-center gap-1 text-xs">
-              <MessageSquare className="w-3 h-3" />
+              <MessageSquare className="w-3.5 h-3.5" />
               <span>{item.comments.length}</span>
             </div>
           )}
@@ -165,7 +182,7 @@ function KanbanCard({ item, onClick }: { item: Item; onClick?: () => void }) {
           {/* Files count */}
           {item.files && item.files.length > 0 && (
             <div className="flex items-center gap-1 text-xs">
-              <Paperclip className="w-3 h-3" />
+              <Paperclip className="w-3.5 h-3.5" />
               <span>{item.files.length}</span>
             </div>
           )}
@@ -296,27 +313,32 @@ export function KanbanView({
               className="flex-shrink-0 w-80 flex flex-col"
             >
               {/* Column Header */}
-              <div className="mb-3">
+              <div className="mb-4">
                 <div
                   className={cn(
-                    "flex items-center justify-between px-3 py-2 rounded-lg",
-                    isOverWipLimit && "ring-2 ring-red-500"
+                    "flex items-center justify-between px-4 py-3 rounded-xl shadow-sm border",
+                    "bg-gradient-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-800/50",
+                    "border-gray-200 dark:border-gray-700",
+                    isOverWipLimit && "ring-2 ring-red-500 ring-offset-2"
                   )}
-                  style={{ backgroundColor: column.color + "20" }}
+                  style={{ 
+                    borderLeftColor: column.color,
+                    borderLeftWidth: '4px'
+                  }}
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-3">
                     <div
-                      className="w-3 h-3 rounded-full"
+                      className="w-3 h-3 rounded-full shadow-sm"
                       style={{ backgroundColor: column.color }}
                     />
-                    <h3 className="font-semibold">{column.title}</h3>
+                    <h3 className="font-semibold text-gray-900 dark:text-gray-100">{column.title}</h3>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className={cn(
-                      "text-sm",
+                      "text-sm font-medium px-2 py-1 rounded-md",
                       isOverWipLimit 
-                        ? "text-red-600 dark:text-red-400 font-semibold" 
-                        : "text-gray-600 dark:text-gray-400"
+                        ? "text-red-600 dark:text-red-400 bg-red-500/10 font-bold" 
+                        : "text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700"
                     )}>
                       {column.items.length}
                       {column.wipLimit && ` / ${column.wipLimit}`}

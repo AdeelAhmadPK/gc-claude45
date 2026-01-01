@@ -46,7 +46,7 @@ export function DraggableItem({ item, columns, boardId, workspaceId, onItemClick
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 group cursor-pointer"
+      className="flex items-center px-4 py-2.5 hover:bg-gray-50/80 dark:hover:bg-gray-800/30 group cursor-pointer border-b border-gray-100 dark:border-gray-800 transition-colors"
       onClick={() => onItemClick?.(item.id)}
     >
       {/* Drag Handle */}
@@ -54,12 +54,13 @@ export function DraggableItem({ item, columns, boardId, workspaceId, onItemClick
         {...attributes}
         {...listeners}
         className="mr-3 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity"
+        onClick={(e) => e.stopPropagation()}
       >
         <GripVertical className="h-4 w-4 text-gray-400" />
       </div>
 
       {/* Item Name */}
-      <div className="w-64 font-medium">{item.name}</div>
+      <div className="w-64 font-medium text-gray-900 dark:text-gray-100">{item.name}</div>
 
       {/* Column Values */}
       {columns.map((column) => (
@@ -67,6 +68,7 @@ export function DraggableItem({ item, columns, boardId, workspaceId, onItemClick
           key={column.id}
           className="text-sm"
           style={{ width: column.width || 150 }}
+          onClick={(e) => e.stopPropagation()}
         >
           <ColumnValueCell
             itemId={item.id}

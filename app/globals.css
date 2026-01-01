@@ -131,3 +131,22 @@
   @apply hover:bg-muted/50 transition-colors cursor-pointer;
 }
 
+/* Enhanced card shadows and borders */
+.card-enhanced {
+  @apply border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm hover:shadow-md transition-shadow;
+}
+
+/* Modern button styling */
+.btn-modern {
+  @apply font-medium rounded-lg transition-all duration-200 hover:scale-[1.02] active:scale-[0.98];
+}
+
+/* Smooth transitions */
+* {
+  @apply transition-colors duration-200;
+}
+
+/* Focus rings */
+:focus-visible {
+  @apply ring-2 ring-primary ring-offset-2 ring-offset-background outline-none;
+}
