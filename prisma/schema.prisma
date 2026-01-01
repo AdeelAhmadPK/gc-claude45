@@ -1,0 +1,869 @@
+// This is your Prisma schema file
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// AUTHENTICATION & USER MANAGEMENT
+// ============================================
+
+enum UserRole {
+  PLATFORM_OWNER  // Super admin - can manage everything
+  USER            // Regular user
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING_VERIFICATION
+  DISABLED
+}
+
+model User {
+  id                String      @id @default(cuid())
+  email             String      @unique
+  emailVerified     DateTime?
+  name              String?
+  password          String?
+  image             String?
+  jobTitle          String?
+  timezone          String      @default("UTC")
+  language          String      @default("en")
+  role              UserRole    @default(USER)
+  status            UserStatus  @default(PENDING_VERIFICATION)
+  twoFactorEnabled  Boolean     @default(false)
+  twoFactorSecret   String?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  lastLoginAt       DateTime?
+  disabledAt        DateTime?
+  disabledBy        String?
+  disabledReason    String?
+  
+  // Relations
+  accounts          Account[]
+  sessions          Session[]
+  workspaceMemberships WorkspaceMember[]
+  createdWorkspaces Workspace[] @relation("WorkspaceOwner")
+  createdItems      Item[] @relation("ItemCreator")
+  assignedItems     ItemAssignment[]
+  comments          Comment[]
+  commentReactions  CommentReaction[]
+  uploadedFiles     File[]
+  createdDashboards Dashboard[]
+  activityLogs      ActivityLog[]
+  notifications     Notification[]
+  apiKeys           ApiKey[]
+  timeEntries       TimeEntry[]
+  createdAutomations Automation[]
+  
+  @@index([email])
+  @@index([role])
+  @@index([status])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ============================================
+// WORKSPACE & ORGANIZATION
+// ============================================
+
+model Workspace {
+  id              String    @id @default(cuid())
+  name            String
+  slug            String    @unique
+  logo            String?
+  customDomain    String?   @unique
+  settings        Json      @default("{}")
+  ownerId         String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relations
+  owner           User      @relation("WorkspaceOwner", fields: [ownerId], references: [id])
+  members         WorkspaceMember[]
+  boards          Board[]
+  folders         Folder[]
+  teams           Team[]
+  dashboards      Dashboard[]
+  automations     Automation[]
+  goals           Goal[]
+  integrations    Integration[]
+  
+  @@index([ownerId])
+  @@index([slug])
+}
+
+enum WorkspaceRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+  GUEST
+}
+
+model WorkspaceMember {
+  id          String        @id @default(cuid())
+  workspaceId String
+  userId      String
+  role        WorkspaceRole @default(MEMBER)
+  invitedAt   DateTime      @default(now())
+  joinedAt    DateTime?
+  
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([workspaceId, userId])
+  @@index([workspaceId])
+  @@index([userId])
+}
+
+model Team {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  description String?
+  color       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  members     TeamMember[]
+  
+  @@index([workspaceId])
+}
+
+model TeamMember {
+  id        String   @id @default(cuid())
+  teamId    String
+  userId    String
+  role      String?
+  joinedAt  DateTime @default(now())
+  
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  
+  @@unique([teamId, userId])
+  @@index([teamId])
+}
+
+// ============================================
+// BOARD SYSTEM
+// ============================================
+
+model Folder {
+  id          String    @id @default(cuid())
+  workspaceId String
+  name        String
+  color       String?
+  position    Int
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  boards      Board[]
+  
+  @@index([workspaceId])
+}
+
+enum BoardVisibility {
+  PUBLIC
+  PRIVATE
+  SHAREABLE
+}
+
+model Board {
+  id          String          @id @default(cuid())
+  workspaceId String
+  folderId    String?
+  name        String
+  description String?
+  icon        String?
+  color       String?
+  visibility  BoardVisibility @default(PUBLIC)
+  settings    Json            @default("{}")
+  position    Int
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  
+  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  folder      Folder?         @relation(fields: [folderId], references: [id])
+  columns     Column[]
+  groups      Group[]
+  items       Item[]
+  views       BoardView[]
+  permissions BoardPermission[]
+  automations Automation[]
+  
+  @@index([workspaceId])
+  @@index([folderId])
+}
+
+model BoardPermission {
+  id        String   @id @default(cuid())
+  boardId   String
+  userId    String?
+  teamId    String?
+  canView   Boolean  @default(true)
+  canEdit   Boolean  @default(false)
+  canAdmin  Boolean  @default(false)
+  
+  board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  
+  @@index([boardId])
+}
+
+// ============================================
+// COLUMN SYSTEM
+// ============================================
+
+enum ColumnType {
+  TEXT
+  LONG_TEXT
+  NUMBER
+  CHECKBOX
+  STATUS
+  DROPDOWN
+  LABELS
+  PEOPLE
+  TEAM
+  DATE
+  TIMELINE
+  DUE_DATE
+  FILES
+  LINK
+  EMAIL
+  PHONE
+  LOCATION
+  RATING
+  PROGRESS
+  FORMULA
+  DEPENDENCY
+  MIRROR
+  CONNECT_BOARDS
+  BUTTON
+  COLOR_PICKER
+  COUNTRY
+  HOUR_TRACKING
+  CREATED_DATE
+  LAST_UPDATED
+  CREATOR
+  LAST_UPDATED_BY
+}
+
+model Column {
+  id          String     @id @default(cuid())
+  boardId     String
+  title       String
+  type        ColumnType
+  settings    Json       @default("{}")
+  position    Int
+  width       Int?       @default(150)
+  isPinned    Boolean    @default(false)
+  isHidden    Boolean    @default(false)
+  isRequired  Boolean    @default(false)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  
+  board       Board      @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  values      ColumnValue[]
+  
+  @@index([boardId])
+}
+
+// ============================================
+// GROUPS & ITEMS
+// ============================================
+
+model Group {
+  id          String   @id @default(cuid())
+  boardId     String
+  title       String
+  color       String?
+  position    Int
+  isCollapsed Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  board       Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  items       Item[]
+  
+  @@index([boardId])
+}
+
+enum ItemPriority {
+  URGENT
+  HIGH
+  MEDIUM
+  LOW
+  NONE
+}
+
+model Item {
+  id          String        @id @default(cuid())
+  boardId     String
+  groupId     String
+  parentId    String?       // For subitems
+  name        String
+  description String?       @db.Text
+  priority    ItemPriority  @default(NONE)
+  position    Int
+  isArchived  Boolean       @default(false)
+  creatorId   String
+  dueDate     DateTime?
+  startDate   DateTime?
+  completedAt DateTime?
+  estimatedHours Float?
+  actualHours    Float?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  
+  board       Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  group       Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  creator     User     @relation("ItemCreator", fields: [creatorId], references: [id])
+  parent      Item?    @relation("ItemSubitems", fields: [parentId], references: [id], onDelete: Cascade)
+  
+  subitems         Item[]   @relation("ItemSubitems")
+  columnValues     ColumnValue[]
+  assignments      ItemAssignment[]
+  comments         Comment[]
+  updates          Update[]
+  files            File[]
+  activityLogs     ActivityLog[]
+  timeEntries      TimeEntry[]
+  blockedBy        ItemDependency[] @relation("DependencyItem")
+  blocking         ItemDependency[] @relation("DependentItem")
+  
+  @@index([boardId])
+  @@index([groupId])
+  @@index([parentId])
+  @@index([creatorId])
+  @@index([dueDate])
+  @@index([priority])
+}
+
+model ColumnValue {
+  id        String   @id @default(cuid())
+  itemId    String
+  columnId  String
+  value     Json     // Flexible JSON storage for different column types
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  column    Column   @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  
+  @@unique([itemId, columnId])
+  @@index([itemId])
+  @@index([columnId])
+}
+
+model ItemAssignment {
+  id        String   @id @default(cuid())
+  itemId    String
+  userId    String
+  assignedAt DateTime @default(now())
+  
+  item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([itemId, userId])
+  @@index([itemId])
+  @@index([userId])
+}
+
+// ============================================
+// COLLABORATION
+// ============================================
+
+model Comment {
+  id               String            @id @default(cuid())
+  itemId           String
+  userId           String
+  text             String            @db.Text
+  parentId         String?
+  isPinned         Boolean           @default(false)
+  isResolved       Boolean           @default(false)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  
+  item             Item              @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent           Comment?          @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies          Comment[]         @relation("CommentReplies")
+  reactions        CommentReaction[]
+  
+  @@index([itemId])
+  @@index([userId])
+  @@index([parentId])
+}
+
+model CommentReaction {
+  id        String   @id @default(cuid())
+  commentId String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+  
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([commentId, userId, emoji])
+  @@index([commentId])
+  @@index([userId])
+}
+
+model Update {
+  id        String   @id @default(cuid())
+  itemId    String
+  userId    String
+  title     String?
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  
+  @@index([itemId])
+}
+
+model File {
+  id           String   @id @default(cuid())
+  itemId       String
+  name         String
+  url          String
+  size         Int
+  mimeType     String
+  uploadedById String
+  createdAt    DateTime @default(now())
+  
+  item         Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+  
+  @@index([itemId])
+  @@index([uploadedById])
+}
+
+model ActivityLog {
+  id          String   @id @default(cuid())
+  itemId      String?
+  userId      String
+  workspaceId String?
+  action      String
+  entityType  String
+  entityId    String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  
+  item        Item?    @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([itemId])
+  @@index([userId])
+  @@index([workspaceId])
+  @@index([createdAt])
+}
+
+// ============================================
+// VIEWS
+// ============================================
+
+enum ViewType {
+  TABLE
+  KANBAN
+  CALENDAR
+  TIMELINE
+  WORKLOAD
+  CHART
+  FORM
+  MAP
+  FILES
+  DASHBOARD
+}
+
+model BoardView {
+  id        String   @id @default(cuid())
+  boardId   String
+  name      String
+  type      ViewType
+  config    Json     @default("{}")
+  filters   Json?
+  sorts     Json?
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  
+  @@index([boardId])
+}
+
+// ============================================
+// DASHBOARDS
+// ============================================
+
+model Dashboard {
+  id          String   @id @default(cuid())
+  workspaceId String
+  creatorId   String
+  name        String
+  description String?
+  layout      Json     @default("[]")
+  isPublic    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  creator     User      @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  widgets     Widget[]
+  
+  @@index([workspaceId])
+  @@index([creatorId])
+}
+
+enum WidgetType {
+  NUMBERS
+  BATTERY
+  CHART
+  TIMELINE
+  WORKLOAD
+  TABLE
+  STATUS
+  BOARD_VIEW
+  MY_WORK
+  CALENDAR
+  TASKS
+  FILES_GALLERY
+  TIME_TRACKING
+  FEED
+  CUSTOM
+}
+
+model Widget {
+  id          String     @id @default(cuid())
+  dashboardId String
+  type        WidgetType
+  title       String?
+  config      Json       @default("{}")
+  position    Json       // { x, y, w, h }
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  
+  dashboard   Dashboard  @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+  
+  @@index([dashboardId])
+}
+
+// ============================================
+// AUTOMATION
+// ============================================
+
+model Automation {
+  id          String   @id @default(cuid())
+  workspaceId String
+  boardId     String?
+  name        String
+  description String?  @db.Text
+  trigger     Json     // Trigger configuration
+  conditions  Json?    // Optional conditions
+  actions     Json     // Actions to execute
+  isEnabled   Boolean  @default(true)
+  runCount    Int      @default(0)
+  lastRunAt   DateTime?
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  board       Board?    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  creator     User      @relation(fields: [createdBy], references: [id])
+  logs        AutomationLog[]
+  
+  @@index([workspaceId])
+  @@index([boardId])
+  @@index([isEnabled])
+}
+
+model AutomationLog {
+  id            String     @id @default(cuid())
+  automationId  String
+  status        String     // success, error, skipped
+  errorMessage  String?
+  executionTime Int?       // milliseconds
+  metadata      Json?
+  createdAt     DateTime   @default(now())
+  
+  automation    Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+  
+  @@index([automationId])
+  @@index([createdAt])
+}
+
+// ============================================
+// GOALS & OKRs
+// ============================================
+
+model Goal {
+  id          String   @id @default(cuid())
+  workspaceId String
+  parentId    String?
+  title       String
+  description String?  @db.Text
+  ownerId     String
+  startDate   DateTime?
+  endDate     DateTime?
+  progress    Int      @default(0)
+  status      String   @default("not_started")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  parent      Goal?     @relation("GoalHierarchy", fields: [parentId], references: [id])
+  children    Goal[]    @relation("GoalHierarchy")
+  keyResults  KeyResult[]
+  
+  @@index([workspaceId])
+  @@index([parentId])
+}
+
+model KeyResult {
+  id          String   @id @default(cuid())
+  goalId      String
+  title       String
+  description String?  @db.Text
+  target      Float
+  current     Float    @default(0)
+  unit        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  goal        Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  
+  @@index([goalId])
+}
+
+// ============================================
+// INTEGRATIONS
+// ============================================
+
+model Integration {
+  id          String   @id @default(cuid())
+  workspaceId String
+  provider    String   // slack, google, github, etc.
+  config      Json     // API keys, tokens, settings
+  isEnabled   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  
+  @@unique([workspaceId, provider])
+  @@index([workspaceId])
+}
+
+model ApiKey {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  key         String   @unique
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime @default(now())
+  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([key])
+}
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+enum NotificationType {
+  ASSIGNMENT
+  MENTION
+  COMMENT
+  STATUS_CHANGE
+  DUE_DATE
+  AUTOMATION
+  SYSTEM
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String           @db.Text
+  link      String?
+  isRead    Boolean          @default(false)
+  metadata  Json?
+  createdAt DateTime         @default(now())
+  
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+// ============================================
+// TEMPLATES
+// ============================================
+
+model Template {
+  id          String   @id @default(cuid())
+  name        String
+  description String?  @db.Text
+  category    String
+  thumbnail   String?
+  structure   Json     // Board structure, columns, groups, sample data
+  isPublic    Boolean  @default(true)
+  usageCount  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([category])
+}
+
+// ============================================
+// ITEM DEPENDENCIES & TIME TRACKING
+// ============================================
+
+enum DependencyType {
+  BLOCKS          // This item blocks the dependent item
+  BLOCKED_BY      // This item is blocked by the dependency item
+  RELATES_TO      // General relationship
+}
+
+model ItemDependency {
+  id            String         @id @default(cuid())
+  itemId        String         // The item that has the dependency
+  dependsOnId   String         // The item it depends on
+  type          DependencyType @default(BLOCKS)
+  createdAt     DateTime       @default(now())
+  
+  item          Item           @relation("DependentItem", fields: [itemId], references: [id], onDelete: Cascade)
+  dependsOn     Item           @relation("DependencyItem", fields: [dependsOnId], references: [id], onDelete: Cascade)
+  
+  @@unique([itemId, dependsOnId])
+  @@index([itemId])
+  @@index([dependsOnId])
+}
+
+model TimeEntry {
+  id          String   @id @default(cuid())
+  itemId      String
+  userId      String
+  hours       Float
+  description String?  @db.Text
+  date        DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  item        Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([itemId])
+  @@index([userId])
+  @@index([date])
+}
+
+// ============================================
+// PLATFORM ADMIN & AUDIT LOGS
+// ============================================
+
+enum AuditAction {
+  USER_CREATED
+  USER_UPDATED
+  USER_DISABLED
+  USER_ENABLED
+  USER_DELETED
+  WORKSPACE_CREATED
+  WORKSPACE_UPDATED
+  WORKSPACE_DELETED
+  WORKSPACE_TRANSFERRED
+  BOARD_CREATED
+  BOARD_UPDATED
+  BOARD_DELETED
+  ITEM_CREATED
+  ITEM_UPDATED
+  ITEM_DELETED
+  COLUMN_CREATED
+  COLUMN_UPDATED
+  COLUMN_DELETED
+  PERMISSION_CHANGED
+  AUTOMATION_TRIGGERED
+  INTEGRATION_CONNECTED
+  INTEGRATION_DISCONNECTED
+  SETTINGS_CHANGED
+}
+
+model AuditLog {
+  id            String      @id @default(cuid())
+  action        AuditAction
+  performedBy   String?     // User ID who performed the action
+  performedByEmail String?  // Email for tracking
+  targetType    String      // user, workspace, board, item, etc.
+  targetId      String?
+  targetName    String?
+  workspaceId   String?
+  changes       Json?       // What changed
+  metadata      Json?       // Additional context
+  ipAddress     String?
+  userAgent     String?
+  createdAt     DateTime    @default(now())
+  
+  @@index([performedBy])
+  @@index([targetType, targetId])
+  @@index([workspaceId])
+  @@index([createdAt])
+  @@index([action])
+}
+
+// ============================================
+// AUTOMATION ENGINE
+// ============================================
+
+

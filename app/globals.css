@@ -1,0 +1,133 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 265 89% 52%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 265 89% 52%;
+    --radius: 0.5rem;
+    
+    /* monday.com colors */
+    --monday-dark-bg: 215 20% 12%;
+    --monday-darker-bg: 215 25% 8%;
+    --monday-sidebar-bg: 215 25% 10%;
+    --monday-border: 215 15% 20%;
+    --monday-hover: 215 20% 15%;
+    --monday-accent: 265 89% 52%;
+  }
+
+  .dark {
+    --background: 215 20% 12%;
+    --foreground: 210 40% 98%;
+    --card: 215 25% 10%;
+    --card-foreground: 210 40% 98%;
+    --popover: 215 25% 8%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 265 89% 52%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 215 20% 15%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 215 20% 15%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 215 20% 15%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 50%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 215 15% 20%;
+    --input: 215 15% 20%;
+    --ring: 265 89% 52%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Monday.com style custom scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-400/30 dark:bg-gray-600/30 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-400/50 dark:bg-gray-600/50;
+}
+
+/* Monday.com person pill styles */
+.person-pill {
+  @apply inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-sm font-medium;
+}
+
+.person-pill-green {
+  @apply bg-green-500/20 text-green-600 dark:text-green-400 border border-green-500/30;
+}
+
+.person-pill-blue {
+  @apply bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30;
+}
+
+.person-pill-purple {
+  @apply bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/30;
+}
+
+.person-pill-orange {
+  @apply bg-orange-500/20 text-orange-600 dark:text-orange-400 border border-orange-500/30;
+}
+
+/* Status pill styles */
+.status-pill {
+  @apply inline-flex items-center justify-center px-3 py-1 rounded-md text-sm font-medium;
+}
+
+.status-done {
+  @apply bg-green-500/20 text-green-700 dark:text-green-400 border border-green-500/30;
+}
+
+.status-working {
+  @apply bg-orange-500/20 text-orange-700 dark:text-orange-400 border border-orange-500/30;
+}
+
+.status-stuck {
+  @apply bg-red-500/20 text-red-700 dark:text-red-400 border border-red-500/30;
+}
+
+.status-pending {
+  @apply bg-gray-500/20 text-gray-700 dark:text-gray-400 border border-gray-500/30;
+}
+
+/* Board row hover effect */
+.board-row {
+  @apply hover:bg-muted/50 transition-colors cursor-pointer;
+}
+
