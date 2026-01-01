@@ -5,7 +5,7 @@ const prisma = new PrismaClient();
 
 async function main() {
   const email = "adeeltahiri644@gmail.com";
-  const newPassword = "Test123456"; // Use this password to login
+  const newPassword = "12345678"; // Simple password - CHANGE THIS AFTER FIRST LOGIN!
 
   // Hash password
   const hashedPassword = await hash(newPassword, 12);
