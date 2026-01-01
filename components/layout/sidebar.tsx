@@ -22,14 +22,12 @@ export function Sidebar() {
   const workspaceId = params?.workspaceId as string;
   const { data: session } = useSession();
 
-  const navigation = workspaceId ? [
+  const navigation = [
     { name: "Home", href: "/dashboard", icon: Home },
-    { name: "Boards", href: `/dashboard/workspaces/${workspaceId}`, icon: FolderKanban },
-    { name: "Dashboards", href: `/dashboard/workspaces/${workspaceId}/dashboards`, icon: BarChart3 },
-    { name: "Goals", href: `/dashboard/workspaces/${workspaceId}/goals`, icon: Target },
-    { name: "Team", href: `/dashboard/workspaces/${workspaceId}/team`, icon: Users },
-  ] : [
-    { name: "Home", href: "/dashboard", icon: Home },
+    { name: "Boards", href: workspaceId ? `/dashboard/workspaces/${workspaceId}` : "/dashboard", icon: FolderKanban, disabled: !workspaceId },
+    { name: "Dashboards", href: workspaceId ? `/dashboard/workspaces/${workspaceId}/dashboards` : "/dashboard", icon: BarChart3, disabled: !workspaceId },
+    { name: "Goals", href: workspaceId ? `/dashboard/workspaces/${workspaceId}/goals` : "/dashboard", icon: Target, disabled: !workspaceId },
+    { name: "Team", href: workspaceId ? `/dashboard/workspaces/${workspaceId}/team` : "/dashboard", icon: Users, disabled: !workspaceId },
   ];
 
   return (
@@ -48,6 +46,21 @@ export function Sidebar() {
       <nav className="flex-1 px-4 py-6 space-y-2">
         {navigation.map((item) => {
           const isActive = pathname === item.href || pathname?.startsWith(item.href + "/");
+          const isDisabled = 'disabled' in item && item.disabled;
+          
+          if (isDisabled) {
+            return (
+              <div
+                key={item.name}
+                className="flex items-center space-x-3 px-3 py-2 rounded-lg text-muted-foreground/50 cursor-not-allowed"
+                title="Create a workspace first"
+              >
+                <item.icon className="h-5 w-5" />
+                <span>{item.name}</span>
+              </div>
+            );
+          }
+          
           return (
             <Link
               key={item.name}
