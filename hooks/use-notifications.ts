@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import type { Notification } from "@/components/notifications/notification-center";
+import { FEATURE_FLAGS } from "@/lib/feature-flags";
 
 // Mock data for development
 const generateMockNotifications = (): Notification[] => [
@@ -111,13 +112,15 @@ export function useNotifications() {
     setLoading(false);
   }, []);
 
-  // Poll for new notifications every 30 seconds
+  // Poll for new notifications every 2 minutes
   useEffect(() => {
+    if (!FEATURE_FLAGS.ENABLE_NOTIFICATION_POLLING) return;
+    
     const interval = setInterval(() => {
       // In a real app, fetch new notifications from API
       // For now, we'll just keep the mock data
       console.log("Polling for new notifications...");
-    }, 30000);
+    }, 120000);
 
     return () => clearInterval(interval);
   }, []);

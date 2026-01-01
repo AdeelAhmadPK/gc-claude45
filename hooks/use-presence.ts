@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { FEATURE_FLAGS } from "@/lib/feature-flags";
 
 export interface User {
   id: string;
@@ -72,7 +73,11 @@ export function usePresence(boardId?: string, itemId?: string) {
     });
 
     setPresences(initialPresences);
+  }, []);
 
+  useEffect(() => {
+    if (!FEATURE_FLAGS.ENABLE_PRESENCE_SIMULATION) return;
+    
     // Simulate users coming and going
     const interval = setInterval(() => {
       setPresences((prev) => {
@@ -102,7 +107,7 @@ export function usePresence(boardId?: string, itemId?: string) {
 
         return newPresences;
       });
-    }, 5000);
+    }, 15000);
 
     return () => clearInterval(interval);
   }, [boardId, itemId, currentUser.id]);
@@ -133,6 +138,8 @@ export function useLiveEditing(itemId: string) {
   const [editingUsers, setEditingUsers] = useState<Record<string, { user: User; field: string }>>({});
 
   useEffect(() => {
+    if (!FEATURE_FLAGS.ENABLE_LIVE_EDITING_SIMULATION) return;
+    
     // Simulate users editing fields
     const interval = setInterval(() => {
       if (Math.random() > 0.7) {
@@ -157,7 +164,7 @@ export function useLiveEditing(itemId: string) {
           });
         }, 3000);
       }
-    }, 8000);
+    }, 20000);
 
     return () => clearInterval(interval);
   }, [itemId]);
@@ -198,6 +205,8 @@ export function useActivityStream(boardId?: string) {
   const [activities, setActivities] = useState<Activity[]>([]);
 
   useEffect(() => {
+    if (!FEATURE_FLAGS.ENABLE_ACTIVITY_SIMULATION) return;
+    
     // Simulate activity stream
     const actions: Activity["action"][] = ["viewed", "edited", "commented", "joined", "left"];
     
