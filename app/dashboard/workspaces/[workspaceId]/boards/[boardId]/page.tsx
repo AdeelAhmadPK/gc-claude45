@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Plus, Search, Filter } from "lucide-react";
 import { DndContext, DragEndEvent, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import { DraggableGroup } from "@/components/board/draggable-group";
@@ -52,6 +53,8 @@ export default function BoardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [currentView, setCurrentView] = useState<ViewType>("table");
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterStatus, setFilterStatus] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -60,6 +63,31 @@ export default function BoardPage() {
       },
     })
   );
+
+  // Filter and search board data
+  const filteredBoard = useMemo(() => {
+    if (!board) return null;
+
+    const filtered = {
+      ...board,
+      groups: board.groups.map(group => ({
+        ...group,
+        items: group.items.filter(item => {
+          // Search filter
+          if (searchQuery && !item.name.toLowerCase().includes(searchQuery.toLowerCase())) {
+            return false;
+          }
+          // Status filter (if implemented)
+          // if (filterStatus && item.status !== filterStatus) {
+          //   return false;
+          // }
+          return true;
+        })
+      })).filter(group => group.items.length > 0) // Remove empty groups
+    };
+
+    return filtered;
+  }, [board, searchQuery, filterStatus]);
 
   useEffect(() => {
     fetchBoard();
@@ -334,6 +362,16 @@ export default function BoardPage() {
             )}
           </div>
           <div className="flex items-center space-x-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                type="text"
+                placeholder="Search items..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 w-64"
+              />
+            </div>
             <ViewSwitcher currentView={currentView} onViewChange={setCurrentView} />
             <Button variant="outline">
               <Plus className="h-4 w-4 mr-2" />
@@ -357,23 +395,29 @@ export default function BoardPage() {
               onDragEnd={handleDragEnd}
             >
               <div className="space-y-6">
-                <SortableContext
-                  items={board.groups.map((g) => g.id)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  {board.groups.map((group) => (
-                    <DraggableGroup
-                      key={group.id}
-                      group={group}
-                      columns={board.columns}
-                      boardId={boardId}
-                      workspaceId={workspaceId}
-                      onToggle={toggleGroup}
-                      onAddItem={addItem}
-                      onItemClick={setSelectedItemId}
-                    />
-                  ))}
-                </SortableContext>
+                {filteredBoard && filteredBoard.groups.length > 0 ? (
+                  <SortableContext
+                    items={filteredBoard.groups.map((g) => g.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    {filteredBoard.groups.map((group) => (
+                      <DraggableGroup
+                        key={group.id}
+                        group={group}
+                        columns={board.columns}
+                        boardId={boardId}
+                        workspaceId={workspaceId}
+                        onToggle={toggleGroup}
+                        onAddItem={addItem}
+                        onItemClick={setSelectedItemId}
+                      />
+                    ))}
+                  </SortableContext>
+                ) : (
+                  <div className="text-center py-12">
+                    <p className="text-gray-500">No items match your search.</p>
+                  </div>
+                )}
               </div>
             </DndContext>
           </div>
@@ -381,7 +425,7 @@ export default function BoardPage() {
           <KanbanView
             boardId={boardId}
             workspaceId={workspaceId}
-            items={board.groups.flatMap((g) => g.items)}
+            items={filteredBoard?.groups.flatMap((g) => g.items) || []}
             columns={board.columns}
             onUpdateItem={updateItemStatus}
             onCreateItem={createKanbanItem}
@@ -391,7 +435,7 @@ export default function BoardPage() {
           <CalendarView
             boardId={boardId}
             workspaceId={workspaceId}
-            items={board.groups.flatMap((g) => g.items)}
+            items={filteredBoard?.groups.flatMap((g) => g.items) || []}
             columns={board.columns}
             onItemClick={setSelectedItemId}
           />
