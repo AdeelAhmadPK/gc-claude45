@@ -61,6 +61,7 @@ model User {
   apiKeys           ApiKey[]
   timeEntries       TimeEntry[]
   createdAutomations Automation[]
+  updates           Update[] @relation("UserUpdates")
   
   @@index([email])
   @@index([role])
@@ -463,8 +464,10 @@ model Update {
   updatedAt DateTime @updatedAt
   
   item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  user      User     @relation("UserUpdates", fields: [userId], references: [id], onDelete: Cascade)
   
   @@index([itemId])
+  @@index([userId])
 }
 
 model File {

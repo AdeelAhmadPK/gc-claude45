@@ -4,6 +4,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
 import { ColumnValueCell } from "./column-value-cell";
+import { memo } from "react";
 
 interface Column {
   id: string;
@@ -82,3 +83,5 @@ export function DraggableItem({ item, columns, boardId, workspaceId, onItemClick
     </div>
   );
 }
+
+export default memo(DraggableItem);

@@ -10,7 +10,7 @@ import { DraggableGroup } from "@/components/board/draggable-group";
 import { KanbanView } from "@/components/board/kanban-view";
 import { CalendarView } from "@/components/board/calendar-view";
 import { TimelineView } from "@/components/board/timeline-view";
-import { ItemDrawer } from "@/components/item/item-drawer";
+import { ItemDetailPanel } from "@/components/item/item-detail-panel";
 import { ViewSwitcher, ViewType } from "@/components/board/view-switcher";
 
 interface Column {
@@ -422,16 +422,14 @@ export default function BoardPage() {
         )}
       </div>
 
-      {/* Item Detail Drawer */}
-      {selectedItemId && (
-        <ItemDrawer
-          itemId={selectedItemId}
-          boardId={boardId}
-          workspaceId={workspaceId}
-          open={!!selectedItemId}
-          onClose={() => setSelectedItemId(null)}
-        />
-      )}
+      {/* Item Detail Panel */}
+      <ItemDetailPanel
+        isOpen={!!selectedItemId}
+        onClose={() => setSelectedItemId(null)}
+        itemId={selectedItemId || ""}
+        boardId={boardId}
+        workspaceId={workspaceId}
+      />
     </div>
   );
 }
