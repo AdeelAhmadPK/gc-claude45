@@ -125,10 +125,40 @@ export function ItemDetailPanel({ isOpen, onClose, itemId, boardId, workspaceId 
       const response = await fetch(`/api/workspaces/${workspaceId}/boards/${boardId}/items/${itemId}/activity`);
       if (response.ok) {
         const data = await response.json();
-        setActivities(data);
+        // Format the activity descriptions properly
+        const formattedActivities = data.map((activity: any) => ({
+          ...activity,
+          description: formatActivityDescription(activity),
+        }));
+        setActivities(formattedActivities);
       }
     } catch (error) {
       console.error("Failed to fetch activities:", error);
+    }
+  };
+
+  const formatActivityDescription = (activity: any) => {
+    const metadata = typeof activity.metadata === 'string' 
+      ? JSON.parse(activity.metadata) 
+      : activity.metadata;
+    
+    switch (activity.type) {
+      case "status_change":
+        return `Changed status to ${metadata?.value || 'Unknown'}`;
+      case "assignment":
+        return `Assigned to ${metadata?.userName || 'someone'}`;
+      case "comment":
+        return `Added a comment`;
+      case "file_upload":
+        return `Uploaded file: ${metadata?.fileName || 'file'}`;
+      case "date_change":
+        return `Changed due date`;
+      case "priority_change":
+        return `Changed priority to ${metadata?.value || 'Unknown'}`;
+      case "created":
+        return `Created this item`;
+      default:
+        return activity.description || `Updated ${activity.type}`;
     }
   };
 

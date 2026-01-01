@@ -4,6 +4,13 @@ import { useEffect, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Plus, Search, Filter } from "lucide-react";
 import { DndContext, DragEndEvent, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
@@ -55,6 +62,10 @@ export default function BoardPage() {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
+  const [isAddingColumn, setIsAddingColumn] = useState(false);
+  const [isAddingGroup, setIsAddingGroup] = useState(false);
+  const [newColumnName, setNewColumnName] = useState("");
+  const [newGroupName, setNewGroupName] = useState("");
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -327,6 +338,57 @@ export default function BoardPage() {
     }
   };
 
+  const addColumn = async () => {
+    if (!board || !newColumnName.trim()) return;
+
+    try {
+      const response = await fetch(
+        `/api/workspaces/${workspaceId}/boards/${boardId}/columns`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: newColumnName,
+            type: "TEXT",
+          }),
+        }
+      );
+
+      if (response.ok) {
+        setNewColumnName("");
+        setIsAddingColumn(false);
+        await fetchBoard();
+      }
+    } catch (error) {
+      console.error("Error adding column:", error);
+    }
+  };
+
+  const addGroup = async () => {
+    if (!board || !newGroupName.trim()) return;
+
+    try {
+      const response = await fetch(
+        `/api/workspaces/${workspaceId}/boards/${boardId}/groups`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: newGroupName,
+          }),
+        }
+      );
+
+      if (response.ok) {
+        setNewGroupName("");
+        setIsAddingGroup(false);
+        await fetchBoard();
+      }
+    } catch (error) {
+      console.error("Error adding group:", error);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -373,11 +435,11 @@ export default function BoardPage() {
               />
             </div>
             <ViewSwitcher currentView={currentView} onViewChange={setCurrentView} />
-            <Button variant="outline">
+            <Button variant="outline" onClick={() => setIsAddingColumn(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Add Column
             </Button>
-            <Button>
+            <Button onClick={() => setIsAddingGroup(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Add Group
             </Button>
@@ -474,6 +536,54 @@ export default function BoardPage() {
         boardId={boardId}
         workspaceId={workspaceId}
       />
+
+      {/* Add Column Dialog */}
+      <Dialog open={isAddingColumn} onOpenChange={setIsAddingColumn}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Column</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Input
+              placeholder="Column name..."
+              value={newColumnName}
+              onChange={(e) => setNewColumnName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addColumn()}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddingColumn(false)}>
+              Cancel
+            </Button>
+            <Button onClick={addColumn}>Add Column</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Group Dialog */}
+      <Dialog open={isAddingGroup} onOpenChange={setIsAddingGroup}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Group</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Input
+              placeholder="Group name..."
+              value={newGroupName}
+              onChange={(e) => setNewGroupName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addGroup()}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddingGroup(false)}>
+              Cancel
+            </Button>
+            <Button onClick={addGroup}>Add Group</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
