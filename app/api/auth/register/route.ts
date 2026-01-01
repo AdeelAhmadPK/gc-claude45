@@ -52,11 +52,25 @@ export async function POST(req: Request) {
     console.error("Registration error:", error);
     
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors }, { status: 400 });
+      return NextResponse.json({ 
+        error: "Validation error", 
+        details: error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')
+      }, { status: 400 });
+    }
+
+    // Check for Prisma unique constraint error
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
+      return NextResponse.json(
+        { error: "An account with this email already exists. Please sign in instead." },
+        { status: 400 }
+      );
     }
 
     return NextResponse.json(
-      { error: "Internal server error", details: error instanceof Error ? error.message : String(error) },
+      { 
+        error: "Internal server error", 
+        details: error instanceof Error ? error.message : String(error) 
+      },
       { status: 500 }
     );
   }
