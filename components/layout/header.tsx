@@ -11,16 +11,16 @@ export function Header() {
   const router = useRouter();
 
   return (
-    <header className="h-16 border-b bg-card">
-      <div className="flex items-center justify-between h-full px-6">
-        <div className="flex-1 max-w-2xl">
+    <header className="hidden md:block h-14 lg:h-16 border-b bg-card">
+      <div className="flex items-center justify-between h-full px-4 lg:px-6">
+        <div className="flex-1 max-w-md lg:max-w-2xl">
           <GlobalSearch />
         </div>
         
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 lg:gap-2">
           <NotificationsPopover />
           
-          <Button variant="ghost" size="icon" title="Help">
+          <Button variant="ghost" size="icon" title="Help" className="hidden lg:flex">
             <HelpCircle className="h-5 w-5" />
           </Button>
           

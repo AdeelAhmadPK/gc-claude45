@@ -266,64 +266,65 @@ export function ItemDetailPanel({ isOpen, onClose, itemId, boardId, workspaceId 
         onClick={onClose}
       />
 
-      {/* Panel */}
+      {/* Panel - responsive width */}
       <div className={cn(
-        "fixed right-0 top-0 bottom-0 w-[700px] bg-white dark:bg-gray-900 shadow-2xl z-50",
+        "fixed right-0 top-0 bottom-0 bg-white dark:bg-gray-900 shadow-2xl z-50",
+        "w-full sm:w-[500px] md:w-[600px] lg:w-[700px]",
         "transform transition-transform duration-300 ease-in-out",
         isOpen ? "translate-x-0" : "translate-x-full"
       )}>
         <div className="flex flex-col h-full">
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex-1">
+          <div className="flex items-center justify-between px-4 md:px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex-1 min-w-0">
               <input
                 type="text"
                 value={item?.name || ""}
                 onChange={(e) => setItem({ ...item, name: e.target.value })}
-                className="text-2xl font-semibold bg-transparent border-none outline-none focus:ring-0 w-full"
+                className="text-xl md:text-2xl font-semibold bg-transparent border-none outline-none focus:ring-0 w-full truncate"
                 placeholder="Item name..."
               />
             </div>
-            <Button variant="ghost" size="icon" onClick={onClose}>
+            <Button variant="ghost" size="icon" onClick={onClose} className="ml-2 flex-shrink-0">
               <X className="h-5 w-5" />
             </Button>
           </div>
 
           {/* Content */}
           <Tabs defaultValue="updates" className="flex-1 flex flex-col overflow-hidden">
-            <TabsList className="mx-6 mt-4">
-              <TabsTrigger value="updates">Updates</TabsTrigger>
-              <TabsTrigger value="files">Files</TabsTrigger>
-              <TabsTrigger value="activity">Activity Log</TabsTrigger>
+            <TabsList className="mx-4 md:mx-6 mt-4 w-auto">
+              <TabsTrigger value="updates" className="text-sm">Updates</TabsTrigger>
+              <TabsTrigger value="files" className="text-sm">Files</TabsTrigger>
+              <TabsTrigger value="activity" className="text-sm">Activity</TabsTrigger>
             </TabsList>
 
             {/* Updates Tab */}
-            <TabsContent value="updates" className="flex-1 flex flex-col mt-0 px-6">
+            <TabsContent value="updates" className="flex-1 flex flex-col mt-0 px-4 md:px-6">
               <ScrollArea className="flex-1 py-4">
                 {updates.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
-                      <Send className="h-8 w-8 text-gray-400" />
+                  <div className="flex flex-col items-center justify-center py-8 md:py-12 text-center">
+                    <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
+                      <Send className="h-6 w-6 md:h-8 md:w-8 text-gray-400" />
                     </div>
-                    <h3 className="text-lg font-semibold mb-2">No updates yet</h3>
-                    <p className="text-gray-500 dark:text-gray-400 max-w-sm">
+                    <h3 className="text-base md:text-lg font-semibold mb-2">No updates yet</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm px-4">
                       Be the first to add an update! Share progress, ask questions, or keep your team informed.
                     </p>
                   </div>
                 ) : (
                   <div className="space-y-4">
                     {updates.map((update) => (
-                      <div key={update.id} className="flex gap-3 group">
-                        <Avatar className="h-8 w-8 flex-shrink-0">
+                      <div key={update.id} className="flex gap-2 md:gap-3 group">
+                        <Avatar className="h-7 w-7 md:h-8 md:w-8 flex-shrink-0">
                           <AvatarImage src={update.user.image || undefined} />
                           <AvatarFallback>
                             {update.user.name?.[0] || update.user.email[0].toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
-                        <div className="flex-1">
-                          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="font-medium text-sm">
+                        <div className="flex-1 min-w-0">
+                          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-2 md:p-3">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              <span className="font-medium text-xs md:text-sm truncate">
                                 {update.user.name || update.user.email}
                               </span>
                               <span className="text-xs text-gray-500">

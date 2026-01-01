@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { memo, useEffect, useState } from "react";
 import { ColumnCell } from "./column-cell";
 
 interface ColumnValueCellProps {
@@ -11,9 +11,10 @@ interface ColumnValueCellProps {
   boardId: string;
 }
 
-export function ColumnValueCell({ itemId, columnId, columnType, workspaceId, boardId }: ColumnValueCellProps) {
+function ColumnValueCellComponent({ itemId, columnId, columnType, workspaceId, boardId }: ColumnValueCellProps) {
   const [value, setValue] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetchColumnValue();
@@ -38,6 +39,7 @@ export function ColumnValueCell({ itemId, columnId, columnType, workspaceId, boa
 
   const handleChange = async (newValue: any) => {
     setValue(newValue);
+    setSaving(true);
     
     try {
       await fetch(
@@ -55,6 +57,8 @@ export function ColumnValueCell({ itemId, columnId, columnType, workspaceId, boa
       console.error("Failed to update column value:", error);
       // Revert on error
       await fetchColumnValue();
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -63,10 +67,18 @@ export function ColumnValueCell({ itemId, columnId, columnType, workspaceId, boa
   }
 
   return (
-    <ColumnCell
-      type={columnType}
-      value={value}
-      onChange={handleChange}
-    />
+    <div className="relative">
+      {saving && (
+        <div className="absolute inset-0 bg-white/40 dark:bg-black/30 rounded animate-pulse pointer-events-none" />
+      )}
+      <ColumnCell
+        type={columnType}
+        value={value}
+        onChange={handleChange}
+      />
+    </div>
   );
 }
+
+// Memoized to avoid needless re-renders when parent lists update
+export const ColumnValueCell = memo(ColumnValueCellComponent);

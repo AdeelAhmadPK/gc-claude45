@@ -1,5 +1,5 @@
 import { AuthProvider } from "@/components/providers/auth-provider";
-import { Sidebar } from "@/components/layout/sidebar";
+import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { Header } from "@/components/layout/header";
 
 export default function DashboardLayout({
@@ -9,15 +9,9 @@ export default function DashboardLayout({
 }) {
   return (
     <AuthProvider>
-      <div className="flex h-screen overflow-hidden">
-        <Sidebar />
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <Header />
-          <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-950">
-            {children}
-          </main>
-        </div>
-      </div>
+      <DashboardShell header={<Header />}>
+        {children}
+      </DashboardShell>
     </AuthProvider>
   );
 }

@@ -14,7 +14,7 @@ import {
   Plus,
 } from "lucide-react";
 import { DraggableItem } from "./draggable-item";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface Column {
   id: string;
@@ -58,6 +58,7 @@ export function DraggableGroup({
 }: DraggableGroupProps) {
   const [newItemName, setNewItemName] = useState("");
   const [isAddingItem, setIsAddingItem] = useState(false);
+  const newItemInputRef = useRef<HTMLInputElement | null>(null);
 
   const {
     attributes,
@@ -81,6 +82,12 @@ export function DraggableGroup({
       setIsAddingItem(false);
     }
   };
+
+  useEffect(() => {
+    if (isAddingItem) {
+      newItemInputRef.current?.focus();
+    }
+  }, [isAddingItem]);
 
   return (
     <div ref={setNodeRef} style={style}>
@@ -170,7 +177,7 @@ export function DraggableGroup({
                         if (e.key === "Enter") handleAddItem();
                         if (e.key === "Escape") setIsAddingItem(false);
                       }}
-                      autoFocus
+                      ref={newItemInputRef}
                       className="flex-1"
                     />
                     <Button size="sm" onClick={handleAddItem}>

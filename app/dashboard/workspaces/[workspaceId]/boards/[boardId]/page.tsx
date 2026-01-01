@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,13 +12,33 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Plus, Search, Filter } from "lucide-react";
-import { DndContext, DragEndEvent, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { Plus, Search, Filter, Menu, X } from "lucide-react";
+import { DndContext, DragEndEvent, closestCenter, PointerSensor, useSensor, useSensors, TouchSensor } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import { DraggableGroup } from "@/components/board/draggable-group";
-import { KanbanView } from "@/components/board/kanban-view";
-import { CalendarView } from "@/components/board/calendar-view";
-import { TimelineView } from "@/components/board/timeline-view";
+import { BoardFilter } from "@/components/board/board-filter";
+import { BoardSkeleton } from "@/components/ui/skeleton";
+const KanbanView = dynamic(
+  () => import("@/components/board/kanban-view").then((mod) => mod.KanbanView),
+  {
+    loading: () => <div className="p-6">Loading Kanban…</div>,
+    ssr: false,
+  }
+);
+const CalendarView = dynamic(
+  () => import("@/components/board/calendar-view").then((mod) => mod.CalendarView),
+  {
+    loading: () => <div className="p-6">Loading Calendar…</div>,
+    ssr: false,
+  }
+);
+const TimelineView = dynamic(
+  () => import("@/components/board/timeline-view").then((mod) => mod.TimelineView),
+  {
+    loading: () => <div className="p-6">Loading Timeline…</div>,
+    ssr: false,
+  }
+);
 import { ItemDetailPanel } from "@/components/item/item-detail-panel";
 import { ViewSwitcher, ViewType } from "@/components/board/view-switcher";
 
@@ -32,6 +53,7 @@ interface Item {
   id: string;
   name: string;
   position: number;
+  columnValues?: Array<{ columnId: string; value: any }>;
 }
 
 interface Group {
@@ -51,6 +73,11 @@ interface Board {
   groups: Group[];
 }
 
+interface ActiveFilter {
+  columnId: string;
+  values: string[];
+}
+
 export default function BoardPage() {
   const params = useParams();
   const boardId = params.boardId as string;
@@ -61,19 +88,35 @@ export default function BoardPage() {
   const [currentView, setCurrentView] = useState<ViewType>("table");
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterStatus, setFilterStatus] = useState<string | null>(null);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
   const [isAddingColumn, setIsAddingColumn] = useState(false);
   const [isAddingGroup, setIsAddingGroup] = useState(false);
   const [newColumnName, setNewColumnName] = useState("");
   const [newGroupName, setNewGroupName] = useState("");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
+  // Touch-friendly sensors for mobile
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
         distance: 8,
       },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200,
+        tolerance: 5,
+      },
     })
   );
+
+  // Debounce search input to avoid re-rendering on every keystroke
+  useEffect(() => {
+    const handle = setTimeout(() => setDebouncedSearch(searchQuery), 350);
+    return () => clearTimeout(handle);
+  }, [searchQuery]);
 
   // Filter and search board data
   const filteredBoard = useMemo(() => {
@@ -85,20 +128,29 @@ export default function BoardPage() {
         ...group,
         items: group.items.filter(item => {
           // Search filter
-          if (searchQuery && !item.name.toLowerCase().includes(searchQuery.toLowerCase())) {
+          if (debouncedSearch && !item.name.toLowerCase().includes(debouncedSearch.toLowerCase())) {
             return false;
           }
-          // Status filter (if implemented)
-          // if (filterStatus && item.status !== filterStatus) {
-          //   return false;
-          // }
+          // Active filters (status, priority, etc.)
+          for (const filter of activeFilters) {
+            const columnValue = item.columnValues?.find(cv => cv.columnId === filter.columnId);
+            if (!columnValue) continue;
+            
+            const valueStr = typeof columnValue.value === 'object' 
+              ? columnValue.value?.status || columnValue.value?.priority 
+              : String(columnValue.value);
+              
+            if (valueStr && !filter.values.includes(valueStr)) {
+              return false;
+            }
+          }
           return true;
         })
-      })).filter(group => group.items.length > 0) // Remove empty groups
+      })).filter(group => group.items.length > 0 || !debouncedSearch && activeFilters.length === 0)
     };
 
     return filtered;
-  }, [board, searchQuery, filterStatus]);
+  }, [board, debouncedSearch, activeFilters]);
 
   useEffect(() => {
     fetchBoard();
@@ -390,11 +442,7 @@ export default function BoardPage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
+    return <BoardSkeleton />;
   }
 
   if (!board) {
@@ -410,20 +458,20 @@ export default function BoardPage() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Board Header */}
-      <div className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+      {/* Board Header - Desktop */}
+      <div className="hidden md:block border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 lg:p-6">
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white truncate">
               {board.name}
             </h1>
             {board.description && (
-              <p className="text-gray-600 dark:text-gray-400 mt-1">
+              <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm truncate">
                 {board.description}
               </p>
             )}
           </div>
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center gap-2 lg:gap-3 flex-shrink-0">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
@@ -431,20 +479,93 @@ export default function BoardPage() {
                 placeholder="Search items..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 w-64"
+                className="pl-9 w-48 lg:w-64"
               />
             </div>
+            <BoardFilter
+              columns={board.columns}
+              activeFilters={activeFilters}
+              onFiltersChange={setActiveFilters}
+            />
             <ViewSwitcher currentView={currentView} onViewChange={setCurrentView} />
-            <Button variant="outline" onClick={() => setIsAddingColumn(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Column
+            <Button variant="outline" size="sm" onClick={() => setIsAddingColumn(true)}>
+              <Plus className="h-4 w-4 lg:mr-2" />
+              <span className="hidden lg:inline">Add Column</span>
             </Button>
-            <Button onClick={() => setIsAddingGroup(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Group
+            <Button size="sm" onClick={() => setIsAddingGroup(true)}>
+              <Plus className="h-4 w-4 lg:mr-2" />
+              <span className="hidden lg:inline">Add Group</span>
             </Button>
           </div>
         </div>
+      </div>
+
+      {/* Board Header - Mobile */}
+      <div className="md:hidden border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+        <div className="p-4 flex items-center justify-between">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-lg font-bold text-gray-900 dark:text-white truncate">
+              {board.name}
+            </h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setMobileSearchOpen(!mobileSearchOpen)}
+            >
+              <Search className="h-5 w-5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            >
+              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </Button>
+          </div>
+        </div>
+        
+        {/* Mobile Search Bar */}
+        {mobileSearchOpen && (
+          <div className="px-4 pb-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                type="text"
+                placeholder="Search items..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 w-full"
+                autoFocus
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Mobile Menu */}
+        {mobileMenuOpen && (
+          <div className="px-4 pb-4 space-y-3 border-t border-gray-100 dark:border-gray-800 pt-3">
+            <div className="flex items-center gap-2 overflow-x-auto pb-2">
+              <ViewSwitcher currentView={currentView} onViewChange={setCurrentView} />
+            </div>
+            <BoardFilter
+              columns={board.columns}
+              activeFilters={activeFilters}
+              onFiltersChange={setActiveFilters}
+            />
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" className="flex-1" onClick={() => setIsAddingColumn(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Column
+              </Button>
+              <Button size="sm" className="flex-1" onClick={() => setIsAddingGroup(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Group
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Board Content */}

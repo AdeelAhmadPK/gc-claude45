@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,21 +15,61 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Calendar as CalendarIcon, CheckSquare, Hash, Type, User, Tag } from "lucide-react";
+import { Calendar as CalendarIcon, CheckSquare, Hash, Type, User, Tag, X, Check, UserPlus } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { InlineProgress } from "@/components/ui/progress-bar";
 import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 interface ColumnCellProps {
   type: string;
   value: any;
   onChange: (value: any) => void;
   onBlur?: () => void;
+  workspaceId?: string;
 }
 
-export function ColumnCell({ type, value, onChange, onBlur }: ColumnCellProps) {
+// Simulated workspace members - in real app, fetch from API
+const WORKSPACE_MEMBERS = [
+  { id: "1", name: "John Doe", email: "john@example.com", avatar: null },
+  { id: "2", name: "Jane Smith", email: "jane@example.com", avatar: null },
+  { id: "3", name: "Bob Wilson", email: "bob@example.com", avatar: null },
+  { id: "4", name: "Alice Brown", email: "alice@example.com", avatar: null },
+];
+
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
+
+function getAvatarColor(name: string) {
+  const colors = [
+    "bg-blue-500",
+    "bg-green-500",
+    "bg-yellow-500",
+    "bg-purple-500",
+    "bg-pink-500",
+    "bg-indigo-500",
+    "bg-red-500",
+    "bg-cyan-500",
+  ];
+  const index = name.charCodeAt(0) % colors.length;
+  return colors[index];
+}
+
+export function ColumnCell({ type, value, onChange, onBlur, workspaceId }: ColumnCellProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [tempValue, setTempValue] = useState(value);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Keep local editor value in sync with upstream value changes
+  useEffect(() => {
+    setTempValue(value);
+  }, [value]);
 
   const handleSave = () => {
     onChange(tempValue);
@@ -41,6 +81,13 @@ export function ColumnCell({ type, value, onChange, onBlur }: ColumnCellProps) {
     setTempValue(value);
     setIsEditing(false);
   };
+
+  // Filter members based on search
+  const filteredMembers = WORKSPACE_MEMBERS.filter(
+    (m) =>
+      m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      m.email.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const renderEditor = () => {
     switch (type) {
@@ -110,6 +157,94 @@ export function ColumnCell({ type, value, onChange, onBlur }: ColumnCellProps) {
               <div className="h-4 w-4 border-2 border-gray-400 rounded" />
             )}
           </button>
+        );
+
+      case "PEOPLE":
+      case "PERSON":
+        const selectedPeople = Array.isArray(tempValue) ? tempValue : tempValue ? [tempValue] : [];
+        return (
+          <Popover open onOpenChange={(open) => !open && setIsEditing(false)}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="h-8 w-full justify-start">
+                {selectedPeople.length > 0 ? (
+                  <div className="flex -space-x-2">
+                    {selectedPeople.slice(0, 3).map((personId: string, i: number) => {
+                      const person = WORKSPACE_MEMBERS.find((m) => m.id === personId);
+                      return person ? (
+                        <div
+                          key={person.id}
+                          className={cn(
+                            "h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-medium text-white border-2 border-white dark:border-gray-800",
+                            getAvatarColor(person.name)
+                          )}
+                        >
+                          {getInitials(person.name)}
+                        </div>
+                      ) : null;
+                    })}
+                    {selectedPeople.length > 3 && (
+                      <div className="h-6 w-6 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-[10px] font-medium border-2 border-white dark:border-gray-800">
+                        +{selectedPeople.length - 3}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <span className="text-gray-400">
+                    <UserPlus className="h-4 w-4" />
+                  </span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 p-0" align="start">
+              <div className="p-2 border-b">
+                <Input
+                  placeholder="Search people..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-8"
+                  autoFocus
+                />
+              </div>
+              <div className="max-h-48 overflow-y-auto p-1">
+                {filteredMembers.map((member) => {
+                  const isSelected = selectedPeople.includes(member.id);
+                  return (
+                    <button
+                      key={member.id}
+                      className={cn(
+                        "w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-gray-100 dark:hover:bg-gray-800",
+                        isSelected && "bg-blue-50 dark:bg-blue-900/20"
+                      )}
+                      onClick={() => {
+                        const newValue = isSelected
+                          ? selectedPeople.filter((id: string) => id !== member.id)
+                          : [...selectedPeople, member.id];
+                        setTempValue(newValue);
+                        onChange(newValue);
+                      }}
+                    >
+                      <div
+                        className={cn(
+                          "h-7 w-7 rounded-full flex items-center justify-center text-xs font-medium text-white",
+                          getAvatarColor(member.name)
+                        )}
+                      >
+                        {getInitials(member.name)}
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className="font-medium">{member.name}</p>
+                        <p className="text-xs text-gray-500">{member.email}</p>
+                      </div>
+                      {isSelected && <Check className="h-4 w-4 text-blue-500" />}
+                    </button>
+                  );
+                })}
+                {filteredMembers.length === 0 && (
+                  <p className="text-sm text-gray-500 text-center py-4">No members found</p>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
         );
 
       case "PRIORITY":
@@ -212,6 +347,41 @@ export function ColumnCell({ type, value, onChange, onBlur }: ColumnCellProps) {
               <CheckSquare className="h-4 w-4 text-blue-600" />
             ) : (
               <div className="h-4 w-4 border-2 border-gray-400 rounded" />
+            )}
+          </div>
+        );
+
+      case "PEOPLE":
+      case "PERSON":
+        const selectedPeople = Array.isArray(value) ? value : value ? [value] : [];
+        if (selectedPeople.length === 0) {
+          return (
+            <span className="text-gray-400 flex items-center">
+              <User className="h-4 w-4" />
+            </span>
+          );
+        }
+        return (
+          <div className="flex -space-x-2">
+            {selectedPeople.slice(0, 3).map((personId: string) => {
+              const person = WORKSPACE_MEMBERS.find((m) => m.id === personId);
+              return person ? (
+                <div
+                  key={person.id}
+                  className={cn(
+                    "h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-medium text-white border-2 border-white dark:border-gray-800",
+                    getAvatarColor(person.name)
+                  )}
+                  title={person.name}
+                >
+                  {getInitials(person.name)}
+                </div>
+              ) : null;
+            })}
+            {selectedPeople.length > 3 && (
+              <div className="h-6 w-6 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-[10px] font-medium border-2 border-white dark:border-gray-800">
+                +{selectedPeople.length - 3}
+              </div>
             )}
           </div>
         );
