@@ -8,8 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AvatarGroup } from "@/components/ui/avatar-group";
 import { Plus, MoreHorizontal, Clock, AlertCircle, Users, Paperclip, MessageSquare } from "lucide-react";
-import { DndContext, DragEndEvent, DragOverEvent, closestCorners, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { DndContext, DragEndEvent, DragOverEvent, DragOverlay, DragStartEvent, closestCorners, PointerSensor, useSensor, useSensors, UniqueIdentifier } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { format } from "date-fns";
@@ -205,6 +205,7 @@ export function KanbanView({
   const [newItemName, setNewItemName] = useState("");
   const [activeColumnId, setActiveColumnId] = useState<string | null>(null);
   const [showWipLimits, setShowWipLimits] = useState(false);
+  const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -259,32 +260,104 @@ export function KanbanView({
     setKanbanColumns(newKanbanColumns);
   }, [items, columns]);
 
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id);
+  };
+
   const handleDragOver = (event: DragOverEvent) => {
-    // Optional: Implement visual feedback during drag
+    const { active, over } = event;
+
+    if (!over) return;
+
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    // Find the columns containing active and over items
+    const activeColumn = kanbanColumns.find((col) =>
+      col.items.some((item) => item.id === activeId)
+    );
+    const overColumn = kanbanColumns.find((col) =>
+      col.items.some((item) => item.id === overId) || col.id === overId
+    );
+
+    if (!activeColumn || !overColumn) return;
+
+    // If dragging within the same column, reorder items
+    if (activeColumn.id === overColumn.id) {
+      const columnIndex = kanbanColumns.findIndex((col) => col.id === activeColumn.id);
+      const activeIndex = activeColumn.items.findIndex((item) => item.id === activeId);
+      const overIndex = activeColumn.items.findIndex((item) => item.id === overId);
+
+      if (activeIndex !== overIndex) {
+        const newItems = arrayMove(activeColumn.items, activeIndex, overIndex);
+        const newColumns = [...kanbanColumns];
+        newColumns[columnIndex] = { ...activeColumn, items: newItems };
+        setKanbanColumns(newColumns);
+      }
+    } else {
+      // Moving between columns
+      const activeColumnIndex = kanbanColumns.findIndex((col) => col.id === activeColumn.id);
+      const overColumnIndex = kanbanColumns.findIndex((col) => col.id === overColumn.id);
+
+      const activeItems = activeColumn.items.filter((item) => item.id !== activeId);
+      const activeItem = activeColumn.items.find((item) => item.id === activeId);
+
+      if (!activeItem) return;
+
+      // Insert into new column
+      const overItems = [...overColumn.items];
+      const overIndex = overColumn.items.findIndex((item) => item.id === overId);
+      
+      if (overIndex >= 0) {
+        overItems.splice(overIndex, 0, activeItem);
+      } else {
+        overItems.push(activeItem);
+      }
+
+      const newColumns = [...kanbanColumns];
+      newColumns[activeColumnIndex] = { ...activeColumn, items: activeItems };
+      newColumns[overColumnIndex] = { ...overColumn, items: overItems };
+      setKanbanColumns(newColumns);
+    }
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
 
+    setActiveId(null);
+
     if (!over) return;
 
-    // Find which column the item was dropped into
-    const overColumnId = over.id as string;
-    const activeItemId = active.id as string;
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    // Find which column contains the active item (after drag over updates)
+    const targetColumn = kanbanColumns.find((col) =>
+      col.items.some((item) => item.id === activeId)
+    );
+
+    if (!targetColumn) return;
 
     // Find the status column
     const statusColumn = columns.find((col) => col.type === "STATUS");
     if (!statusColumn) return;
 
-    // Update item status
-    const newStatusValue = overColumnId === "no-status" 
-      ? null 
-      : { id: overColumnId };
+    // Update item status if it moved to a different column
+    const newStatusValue = targetColumn.id === "no-status"
+      ? null
+      : { id: targetColumn.id };
 
-    onUpdateItem(activeItemId, {
+    await onUpdateItem(activeId, {
       columnId: statusColumn.id,
       value: newStatusValue,
     });
+
+    // Update positions within the column
+    const itemsInColumn = targetColumn.items;
+    const newPosition = itemsInColumn.findIndex((item) => item.id === activeId);
+    
+    // Optionally update positions in the backend
+    // This would require a batch update API endpoint
   };
 
   const handleAddItem = (columnId: string) => {
@@ -300,6 +373,7 @@ export function KanbanView({
     <DndContext
       sensors={sensors}
       collisionDetection={closestCorners}
+      onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
@@ -355,8 +429,9 @@ export function KanbanView({
                 <SortableContext
                   items={column.items.map((item) => item.id)}
                   strategy={verticalListSortingStrategy}
+                  id={column.id}
                 >
-                  <div className="space-y-2">
+                  <div className="space-y-2 min-h-[100px]">
                     {column.items.map((item) => (
                       <KanbanCard 
                         key={item.id} 
@@ -414,6 +489,20 @@ export function KanbanView({
           );
         })}
       </div>
+
+      <DragOverlay>
+        {activeId ? (
+          <div className="opacity-80 rotate-3 scale-105">
+            <KanbanCard
+              item={
+                kanbanColumns
+                  .flatMap((col) => col.items)
+                  .find((item) => item.id === activeId) as Item
+              }
+            />
+          </div>
+        ) : null}
+      </DragOverlay>
     </DndContext>
   );
 }

@@ -4,7 +4,8 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, ChevronRight } from "lucide-react";
 import { ColumnValueCell } from "./column-value-cell";
-import { memo } from "react";
+import { Subitems } from "./subitems";
+import { memo, useState } from "react";
 
 interface Column {
   id: string;
@@ -43,21 +44,24 @@ export function DraggableItem({ item, columns, boardId, workspaceId, onItemClick
     opacity: isDragging ? 0.5 : 1,
   };
 
+  const [showSubitems, setShowSubitems] = useState(false);
+
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className="flex items-center px-2 md:px-4 py-2.5 hover:bg-gray-50/80 dark:hover:bg-gray-800/30 group cursor-pointer border-b border-gray-100 dark:border-gray-800 transition-colors"
-      onClick={() => onItemClick?.(item.id)}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onItemClick?.(item.id);
-        }
-      }}
-    >
+    <>
+      <div
+        ref={setNodeRef}
+        style={style}
+        className="flex items-center px-2 md:px-4 py-2.5 hover:bg-gray-50/80 dark:hover:bg-gray-800/30 group cursor-pointer border-b border-gray-100 dark:border-gray-800 transition-colors"
+        onClick={() => onItemClick?.(item.id)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onItemClick?.(item.id);
+          }
+        }}
+      >
       {/* Drag Handle - larger touch target on mobile */}
       <div
         {...attributes}
@@ -121,6 +125,13 @@ export function DraggableItem({ item, columns, boardId, workspaceId, onItemClick
         ))}
       </div>
     </div>
+    <Subitems
+      itemId={item.id}
+      boardId={boardId}
+      workspaceId={workspaceId}
+      columns={columns}
+    />
+    </>
   );
 }
 
